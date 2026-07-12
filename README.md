@@ -11,6 +11,20 @@
 - 源片风格圣经：把源片视觉风格整理成可迁移的 AI 创作资产。
 - 展示视频生成：将原视频和带图片的 Markdown 报告合成竖屏滚动展示视频。
 
+## 效果预览
+
+封面图：
+
+![导演级视频拉片封面](docs/images/cover.png)
+
+图文滚动展示视频预览：
+
+![图文滚动展示预览 00:10](docs/images/showcase-preview-0010.png)
+
+![图文滚动展示预览 01:10](docs/images/showcase-preview-0110.png)
+
+![图文滚动展示预览 02:05](docs/images/showcase-preview-0205.png)
+
 ## 目录结构
 
 ```text
