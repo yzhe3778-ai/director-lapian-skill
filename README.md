@@ -13,6 +13,10 @@
 
 ## 效果预览
 
+交流群二维码：
+
+![交流群二维码](docs/images/wechat-community-qr.png)
+
 封面图：
 
 ![导演级视频拉片封面](docs/images/cover.png)
