@@ -12,10 +12,21 @@ import qa_lapian_delivery as qa
 
 def find_latest_qa(project_dir: Path) -> Path | None:
     qa_dir = qa.find_child_by_prefix(project_dir, "06_") or project_dir / "06_QA审计"
-    preferred = qa.find_latest_file(qa_dir, ["*qa*.json", "*QA*.json", "*审计*.json", "*audit*.json"])
-    if preferred:
-        return preferred
-    return qa.find_latest_file(qa_dir, ["*.json"])
+    canonical = qa_dir / "lapian_delivery_qa.json"
+    if canonical.is_file():
+        return canonical
+    if not qa_dir.exists():
+        return None
+    candidates = [
+        path
+        for path in qa_dir.iterdir()
+        if path.is_file()
+        and path.suffix.casefold() == ".json"
+        and ("qa" in path.stem.casefold() or "audit" in path.stem.casefold() or "审计" in path.stem)
+    ]
+    if not candidates:
+        return None
+    return sorted(candidates, key=lambda path: (path.stat().st_mtime, path.name))[-1]
 
 
 def find_latest_showcase_video(project_dir: Path) -> Path | None:

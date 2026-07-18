@@ -90,7 +90,7 @@ Default professional director analysis requirements:
 - do not repeat the full adaptive frame table; use 3-8 representative images per major scene and write dense analysis around them.
 - each major scene must include: `这一幕讲了什么事`, `核心节拍`, `高光分镜`, `导演意图层`, `观众心理层`, `视听执行层`, `主题表达层`, `与前后幕关系`, `可学习方法`, and representative frames.
 - write from multiple angles: narrative function, directing intention, audience psychology, camera/staging/composition, light/color/art, performance, sound/editing, commercial rhythm, theme strategy, and transferable craft.
-- use the user's preferred case style from `万物生 副本.docx`: explain why a choice works, not only what appears on screen.
+- follow the case-writing standard in `references/professional_director_analysis.md`: explain why a choice works, not only what appears on screen.
 - every representative frame's `为什么选这一帧` entry must be a unique single-frame deep reading, not a reusable caption. It should explicitly cover `情节`, `构图`, `导演意图`, and `含义`. If a row could be pasted onto another frame unchanged, rewrite it.
 
 ### default source style bible deliverable

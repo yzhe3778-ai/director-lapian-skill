@@ -4,11 +4,14 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import sys
 import tempfile
 import zipfile
 from pathlib import Path
 
 import detect_shot_cuts as shot_detect
+import lapian_fonts
 import lapian_delivery_status as status
 import lapian_finalize_manifest as finalize
 import qa_lapian_delivery as qa
@@ -175,7 +178,10 @@ def test_status_and_manifest_update() -> None:
         assert_true(scan["done"]["pdf_preview"], "status should detect valid pdf")
         assert_true(scan["done"]["asr_files"], "status should detect asr files")
         assert_true(scan["done"]["qa_json"], "status should detect final qa json")
-        assert_true(scan["paths"]["qa_json"] == str(qa_json), "status should prefer QA audit JSON over delivery manifest")
+        assert_true(
+            Path(scan["paths"]["qa_json"]).resolve() == qa_json.resolve(),
+            "status should prefer QA audit JSON over delivery manifest",
+        )
 
         manifest_update = finalize.build_manifest_update(paths["project"])
         assert_true(
@@ -184,6 +190,106 @@ def test_status_and_manifest_update() -> None:
         )
         assert_true(manifest_update["evidence"]["frame_count"] == 3, "manifest should include frame count")
         assert_true(manifest_update["completion"]["pdf_valid"], "manifest should include pdf validity")
+
+
+def test_status_rejects_non_qa_json_and_prefers_canonical_qa() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        paths = make_project(Path(temp))
+        delivery_manifest = paths["qa_dir"] / "测试片_交付清单.json"
+        delivery_manifest.write_text("{}", encoding="utf-8")
+        assert_true(
+            status.find_latest_qa(paths["project"]) is None,
+            "delivery manifests must not be treated as QA audit JSON",
+        )
+
+        chinese_audit = paths["qa_dir"] / "测试片_质量审计.json"
+        chinese_audit.write_text("{}", encoding="utf-8")
+        assert_true(
+            status.find_latest_qa(paths["project"]) == chinese_audit,
+            "Chinese audit filenames should be accepted",
+        )
+        chinese_audit.unlink()
+
+        audit_json = paths["qa_dir"] / "测试片_FINAL_AUDIT.JSON"
+        audit_json.write_text("{}", encoding="utf-8")
+        assert_true(
+            status.find_latest_qa(paths["project"]) == audit_json,
+            "case-insensitive audit filenames should be accepted",
+        )
+
+        canonical_qa = paths["qa_dir"] / "lapian_delivery_qa.json"
+        canonical_qa.write_text("{}", encoding="utf-8")
+        assert_true(
+            status.find_latest_qa(paths["project"]) == canonical_qa,
+            "canonical QA JSON should take priority over other audit files",
+        )
+
+
+def test_finalize_new_manifest_records_current_completion_state() -> None:
+    with tempfile.TemporaryDirectory() as temp:
+        paths = make_project(Path(temp))
+        paths["manifest"].unlink()
+        result = subprocess.run(
+            [
+                sys.executable,
+                str(Path(finalize.__file__).resolve()),
+                "--project-dir",
+                str(paths["project"]),
+            ],
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        assert_true(result.returncode == 0, f"manifest finalization should succeed: {result.stderr}")
+        manifest = json.loads(paths["manifest"].read_text(encoding="utf-8"))
+        completion = manifest["delivery"]["completion"]
+        assert_true(completion["done"]["manifest"], "newly written manifest should be marked complete")
+        assert_true(
+            not any("lapian_finalize_manifest.py" in step for step in completion["next_steps"]),
+            "newly written manifest should not request another finalization",
+        )
+
+
+def test_cross_platform_chinese_font_selection() -> None:
+    candidate_text = [path.as_posix() for path in lapian_fonts.CHINESE_FONT_CANDIDATES]
+    assert_true(any("Windows/Fonts" in path for path in candidate_text), "font search should include Windows")
+    assert_true(any("/System/Library/Fonts" in path for path in candidate_text), "font search should include macOS")
+    assert_true(any("/usr/share/fonts" in path for path in candidate_text), "font search should include Linux")
+
+    with tempfile.TemporaryDirectory() as temp:
+        root = Path(temp)
+        explicit = root / "custom-cjk.ttf"
+        explicit.write_bytes(b"test-font-placeholder")
+        assert_true(
+            lapian_fonts.find_chinese_font(explicit) == str(explicit.resolve()),
+            "explicit --font path should override discovery",
+        )
+
+        discovered = root / "mock-system" / "PingFang.ttc"
+        discovered.parent.mkdir()
+        discovered.write_bytes(b"test-font-placeholder")
+        assert_true(
+            lapian_fonts.find_chinese_font(candidates=[root / "missing.ttf", discovered])
+            == str(discovered.resolve()),
+            "font discovery should select the first available candidate without relying on host fonts",
+        )
+
+        try:
+            lapian_fonts.find_chinese_font(root / "missing-explicit.ttf")
+        except FileNotFoundError as exc:
+            assert_true("Explicit Chinese font file not found" in str(exc), "missing explicit font should fail clearly")
+        else:
+            raise AssertionError("missing explicit font should fail")
+
+        try:
+            lapian_fonts.find_chinese_font(candidates=[])
+        except FileNotFoundError as exc:
+            assert_true(
+                "Windows, macOS, or Linux" in str(exc) and "--font PATH" in str(exc),
+                "missing auto-detected fonts should explain cross-platform recovery",
+            )
+        else:
+            raise AssertionError("empty font candidates should fail")
 
 
 def test_report_frame_selection_keeps_sparse_view_and_key_seconds() -> None:
@@ -458,6 +564,9 @@ def main() -> int:
     test_defaults_find_numbered_dirs()
     test_stable_output_and_pdf_audit()
     test_status_and_manifest_update()
+    test_status_rejects_non_qa_json_and_prefers_canonical_qa()
+    test_finalize_new_manifest_records_current_completion_state()
+    test_cross_platform_chinese_font_selection()
     test_report_frame_selection_keeps_sparse_view_and_key_seconds()
     test_qa_expected_image_count_can_use_selection_plan()
     test_professional_frame_reason_audit_requires_deep_reading()

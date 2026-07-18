@@ -97,6 +97,12 @@ def main() -> int:
     out_path = args.out.resolve() if args.out else project_dir / "manifest.json"
     manifest = load_json(out_path)
     manifest["delivery"] = build_manifest_update(project_dir)
+    if not args.dry_run:
+        completion = manifest["delivery"]["completion"]
+        completion["done"]["manifest"] = True
+        completion["next_steps"] = [
+            step for step in completion["next_steps"] if "lapian_finalize_manifest.py" not in step
+        ]
 
     text = json.dumps(manifest, ensure_ascii=False, indent=2)
     if not args.dry_run:

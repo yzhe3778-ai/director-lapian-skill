@@ -15,6 +15,8 @@ from urllib.parse import unquote
 
 import fitz
 
+from lapian_fonts import find_chinese_font
+
 
 IMAGE_RE = re.compile(r"!\[([^\]]*)\]\(([^)]+)\)")
 
@@ -38,19 +40,6 @@ def resolve_image(raw: str, md_dir: Path) -> Path | None:
     if not path.is_absolute():
         path = md_dir / path
     return path if path.exists() else None
-
-
-def choose_font() -> str | None:
-    candidates = [
-        Path("C:/Windows/Fonts/msyh.ttc"),
-        Path("C:/Windows/Fonts/simhei.ttf"),
-        Path("C:/Windows/Fonts/simsun.ttc"),
-        Path("C:/Windows/Fonts/Deng.ttf"),
-    ]
-    for path in candidates:
-        if path.exists():
-            return str(path)
-    return None
 
 
 def strip_markdown(text: str) -> str:
@@ -85,7 +74,7 @@ def wrap_text(text: str, limit: int = 64) -> list[str]:
 
 
 class PdfWriter:
-    def __init__(self, out: Path, fontfile: str | None, image_width: float) -> None:
+    def __init__(self, out: Path, fontfile: str, image_width: float) -> None:
         self.out = out
         self.doc = fitz.open()
         self.fontfile = fontfile
@@ -152,6 +141,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("markdown", type=Path)
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--image-width", type=float, default=260)
+    parser.add_argument("--font", type=Path, help="Chinese-capable TTF/TTC/OTF font; overrides auto-detection")
     return parser.parse_args()
 
 
@@ -159,7 +149,11 @@ def main() -> int:
     args = parse_args()
     md = args.markdown.resolve()
     text = md.read_text(encoding="utf-8-sig")
-    writer = PdfWriter(args.out.resolve(), choose_font(), args.image_width)
+    try:
+        font_path = find_chinese_font(args.font)
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from None
+    writer = PdfWriter(args.out.resolve(), font_path, args.image_width)
     image_count = 0
     missing_images: list[str] = []
 

@@ -21,6 +21,8 @@ from urllib.parse import unquote
 
 from PIL import Image, ImageDraw, ImageFont, ImageOps
 
+from lapian_fonts import find_chinese_font
+
 
 WIDTH = 1080
 TOP_HEIGHT = 960
@@ -59,19 +61,6 @@ class Op:
     kind: str
     payload: Any
     height: int
-
-
-def find_font() -> str:
-    candidates = [
-        Path(r"C:\Windows\Fonts\msyh.ttc"),
-        Path(r"C:\Windows\Fonts\msyh.ttf"),
-        Path(r"C:\Windows\Fonts\simhei.ttf"),
-        Path(r"C:\Windows\Fonts\simsun.ttc"),
-    ]
-    for font in candidates:
-        if font.exists():
-            return str(font)
-    raise FileNotFoundError("No Chinese font found in C:\\Windows\\Fonts.")
 
 
 def load_font(font_path: str, size: int) -> ImageFont.FreeTypeFont:
@@ -309,8 +298,13 @@ def build_ops(blocks: list[Block], fonts: dict[str, ImageFont.FreeTypeFont]) -> 
     return ops
 
 
-def render_scroll_image(report_path: Path, out_path: Path, project_dir: Path | None) -> None:
-    font_path = find_font()
+def render_scroll_image(
+    report_path: Path,
+    out_path: Path,
+    project_dir: Path | None,
+    font_path: str | None = None,
+) -> None:
+    font_path = font_path or find_chinese_font()
     fonts = {
         "title": load_font(font_path, 38),
         "h2": load_font(font_path, 31),
@@ -545,6 +539,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--fps", type=int, default=DEFAULT_FPS)
     parser.add_argument("--crf", type=int, default=20)
     parser.add_argument("--preset", default="medium")
+    parser.add_argument("--font", type=Path, help="Chinese-capable TTF/TTC/OTF font; overrides auto-detection")
     parser.add_argument("--image-only", action="store_true", help="render only the scrolling report PNG")
     parser.add_argument("--overwrite", action="store_true")
     return parser.parse_args()
@@ -560,6 +555,10 @@ def main() -> int:
         raise SystemExit("missing report: pass --report or --project-dir with a 03_* Markdown report")
     if not args.image_only and (not video or not video.exists()):
         raise SystemExit("missing video: pass --video or use a project manifest with source.source_path")
+    try:
+        font_path = find_chinese_font(args.font)
+    except FileNotFoundError as exc:
+        raise SystemExit(str(exc)) from None
 
     out_dir = args.out_dir.resolve() if args.out_dir else None
     if out_dir is None:
@@ -570,7 +569,7 @@ def main() -> int:
 
     title = sanitize_name(args.title or re.sub(r"_v\d+$", "", report.stem))
     scroll_image = unique_path(out_dir / f"{title}_图文报告滚动长图_v01.png", args.overwrite)
-    render_scroll_image(report, scroll_image, project_dir)
+    render_scroll_image(report, scroll_image, project_dir, font_path)
 
     result = {"scroll_image": str(scroll_image)}
     if not args.image_only:

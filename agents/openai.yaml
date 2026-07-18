@@ -1,5 +1,5 @@
 interface:
   display_name: "Director Lapian"
-  short_description: "导演级视频拉片、专业导演分析与源片风格圣经"
-  icon: "🎬"
-  primary_color: "#7c3aed"
+  short_description: "把本地视频拆解为图文拉片、导演分析、风格圣经与滚动展示视频"
+  brand_color: "#7C3AED"
+  default_prompt: "请使用 $director-lapian 对我提供的视频进行导演级拉片，先建立可审计的抽帧与音频证据，再输出图文报告、专业导演分析、源片风格圣经和滚动展示视频。"
